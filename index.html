@@ -1,0 +1,935 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>shrew and hyrax ᥫ᭡</title>
+
+  <!-- Handwritten fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Patrick+Hand&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg:#0b0b10;
+      --text:#fff;
+      --muted:rgba(255,255,255,.75);
+      --shadow: 0 18px 40px rgba(0,0,0,.35);
+      --ring: rgba(255,255,255,.16);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      background:
+        radial-gradient(1200px 800px at 70% -10%, rgba(255,90,160,.18), transparent 60%),
+        radial-gradient(900px 700px at 10% 0%, rgba(120,160,255,.14), transparent 55%),
+        var(--bg);
+      color:var(--text);
+      overflow:hidden;
+    }
+
+    /* Top bar */
+    .topbar{
+      position:fixed; top:0; left:0; right:0;
+      padding:14px 16px;
+      display:flex; align-items:center; justify-content:space-between;
+      background: linear-gradient(to bottom, rgba(11,11,16,.92), rgba(11,11,16,.35));
+      backdrop-filter: blur(10px);
+      border-bottom:1px solid rgba(255,255,255,.08);
+      z-index:50;
+    }
+    .brand{
+      display:flex; gap:10px; align-items:baseline;
+      font-weight:650; letter-spacing:.2px;
+    }
+    .brand small{color:var(--muted); font-weight:500}
+    .actions{display:flex; gap:10px; align-items:center}
+    button, .chip{
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:14px;
+      cursor:pointer;
+      transition: transform .12s ease, background .12s ease, border-color .12s ease;
+    }
+    button:hover{transform: translateY(-1px); background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.22);}
+    button:active{transform: translateY(0px) scale(.99);}
+    .chip{
+      cursor:default;
+      color:var(--muted);
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px;
+    }
+
+    /* Board */
+    .board{
+      position:absolute;
+      top:62px; left:0; right:0; bottom:0;
+      overflow:hidden;
+      opacity: 0;
+      pointer-events:none;
+      transition: opacity .35s ease;
+    }
+    .board.live{
+      opacity: 1;
+      pointer-events:auto;
+    }
+    .board::before{
+      content:"";
+      position:absolute; inset:0;
+      background-image: radial-gradient(rgba(255,255,255,.06) 1px, transparent 1px);
+      background-size: 26px 26px;
+      opacity:.55;
+      pointer-events:none;
+    }
+
+    /* Sticky note */
+    .note{
+      position:absolute;
+      width:280px;
+      min-height:170px;
+      padding:14px 14px 12px 14px;
+      border-radius:18px;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(0,0,0,.22);
+      user-select:none;
+      touch-action:none;
+      overflow:hidden;
+
+      /* paper-ish texture */
+      background-image:
+        radial-gradient(rgba(0,0,0,.06) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,.24), rgba(255,255,255,0));
+      background-size: 22px 22px, cover;
+
+      transform: rotate(var(--rot, 0deg));
+    }
+    .note .dragbar{
+      position:absolute;
+      left:0; right:0; top:0;
+      height:18px;
+      background: rgba(0,0,0,.10);
+      opacity:.55;
+      cursor:grab;
+    }
+    .note:active .dragbar{cursor:grabbing}
+
+    .note .hdr{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
+      margin-bottom:6px;
+      margin-top:4px;
+    }
+    .note .who{
+      opacity:.9;
+      display:flex;
+      flex-direction:column;
+      line-height:1.1;
+      user-select:text;
+      max-width: 200px;
+    }
+    .note .who span{
+      font-family:"Patrick Hand", system-ui;
+      font-size:16px;
+      letter-spacing:.2px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .note .who small{
+      opacity:.75;
+      font-family:"Patrick Hand", system-ui;
+      font-size:13px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .note .tools{display:flex; gap:8px; align-items:center; opacity:.9;}
+    .iconbtn{
+      width:32px; height:32px;
+      border-radius:12px;
+      border:1px solid rgba(0,0,0,.18);
+      background: rgba(255,255,255,.22);
+      display:grid; place-items:center;
+      cursor:pointer;
+      font-size:14px;
+    }
+    .iconbtn:hover{background: rgba(255,255,255,.30);}
+
+    .note .text{
+      font-family:"Caveat","Patrick Hand",system-ui;
+      font-size:24px;
+      line-height:1.05;
+      letter-spacing:.2px;
+      white-space:pre-wrap;
+      word-wrap:break-word;
+      user-select:text;
+      cursor:text;
+    }
+
+    .note .meta{
+      margin-top:10px;
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-end;
+      gap:10px;
+    }
+    .note .time{
+      font-family:"Patrick Hand", system-ui;
+      font-size:12px;
+      opacity:.72;
+      user-select:text;
+      white-space:nowrap;
+    }
+    .note .hint{
+      font-size:11px;
+      opacity:.65;
+      white-space:nowrap;
+    }
+
+    /* Polaroid */
+    .polaroid{
+      margin-top: 10px;
+      background: rgba(255,255,255,.95);
+      border-radius: 14px;
+      padding: 10px 10px 18px 10px; /* extra bottom */
+      box-shadow: 0 14px 30px rgba(0,0,0,.28);
+      border: 1px solid rgba(0,0,0,.12);
+      transform: rotate(var(--polRot, -1.5deg));
+    }
+    .polaroid img{
+      width: 100%;
+      display:block;
+      border-radius: 10px;
+      border: 1px solid rgba(0,0,0,.12);
+    }
+    .polaroid .caption{
+      margin-top: 10px;
+      text-align: center;
+      color: rgba(0,0,0,.78);
+      font-family: "Caveat", "Patrick Hand", system-ui;
+      font-size: 20px;
+      line-height: 1;
+      min-height: 18px;
+      user-select:text;
+    }
+
+    /* Watermark */
+    .watermark{
+      position:fixed;
+      right:14px;
+      bottom:14px;
+      z-index:1; /* behind notes (notes are appended later with higher zIndex on drag) */
+      pointer-events:none;
+      opacity:.18;
+      filter: drop-shadow(0 8px 18px rgba(0,0,0,.35));
+      transform: rotate(-2deg);
+    }
+    .watermark .wmCard{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      backdrop-filter: blur(8px);
+    }
+    .watermark .wmText{
+      font-family:"Patrick Hand", system-ui;
+      letter-spacing:.2px;
+      color: rgba(255,255,255,.92);
+      font-size:14px;
+      line-height:1.1;
+    }
+    .watermark .wmText small{
+      display:block;
+      opacity:.8;
+      font-size:12px;
+      font-family:"Caveat","Patrick Hand",system-ui;
+    }
+
+    /* Modal */
+    .modalOverlay{
+      position:fixed; inset:0;
+      background: rgba(0,0,0,.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:100;
+      padding:18px;
+    }
+    .modal{
+      width:min(620px, 100%);
+      background: rgba(255,255,255,.08);
+      backdrop-filter: blur(12px);
+      border:1px solid rgba(255,255,255,.16);
+      border-radius:22px;
+      padding:16px;
+      box-shadow: 0 30px 70px rgba(0,0,0,.45);
+    }
+    .modal h2{margin:6px 6px 10px; font-size:18px}
+    .row{display:flex; gap:10px; flex-wrap:wrap; padding:6px}
+    .cols{display:grid; grid-template-columns: 1fr 1fr; gap:10px; padding:6px}
+    .cols > div{display:flex; flex-direction:column; gap:8px}
+    label{font-size:12px; opacity:.85; padding-left:2px}
+    input[type="text"], textarea{
+      width:100%;
+      background: rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.14);
+      color:var(--text);
+      padding:12px 12px;
+      border-radius:14px;
+      outline:none;
+      font-size:14px;
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    }
+    textarea{min-height:140px; resize:vertical}
+    .palette{display:flex; gap:8px; flex-wrap:wrap}
+    .swatch{
+      width:30px; height:30px; border-radius:12px;
+      border:1px solid rgba(255,255,255,.18);
+      cursor:pointer;
+    }
+    .swatch.sel{outline:2px solid rgba(255,255,255,.75);}
+    .modalFooter{
+      display:flex; justify-content:space-between; align-items:center;
+      padding:10px 6px 6px;
+      gap:10px;
+    }
+    .muted{opacity:.75; font-size:12px}
+
+    /* Passphrase gate */
+    .gate{
+      position:fixed;
+      inset:0;
+      z-index:200;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:
+        radial-gradient(900px 700px at 60% 0%, rgba(255,90,160,.22), transparent 60%),
+        radial-gradient(700px 600px at 0% 10%, rgba(120,160,255,.18), transparent 55%),
+        rgba(10,10,14,.86);
+      backdrop-filter: blur(10px);
+    }
+    .gateCard{
+      width:min(520px, 100%);
+      border:1px solid rgba(255,255,255,.16);
+      background: rgba(255,255,255,.07);
+      border-radius: 26px;
+      box-shadow: 0 30px 70px rgba(0,0,0,.55);
+      padding: 18px;
+      position:relative;
+      overflow:hidden;
+    }
+    .gateCard::before{
+      content:"";
+      position:absolute;
+      inset:-40px;
+      background: radial-gradient(circle at 30% 20%, rgba(255,255,255,.12), transparent 35%),
+                  radial-gradient(circle at 70% 70%, rgba(255,255,255,.10), transparent 40%);
+      opacity:.6;
+      pointer-events:none;
+    }
+    .gateInner{position:relative}
+    .gateTitle{
+      font-family:"Caveat","Patrick Hand",system-ui;
+      font-size: 40px;
+      line-height: .95;
+      margin: 4px 6px 2px;
+      letter-spacing:.2px;
+    }
+    .gateSubtitle{
+      margin: 0 6px 14px;
+      opacity:.82;
+      font-family:"Patrick Hand",system-ui;
+    }
+    .gateRow{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      padding: 6px;
+    }
+    .gateInput{
+      flex:1;
+      border-radius:16px;
+      padding: 12px 14px;
+      border:1px solid rgba(255,255,255,.16);
+      background: rgba(0,0,0,.22);
+      color: var(--text);
+      outline:none;
+      font-size: 14px;
+    }
+    .gateBtn{
+      white-space:nowrap;
+      border-radius:16px;
+      padding: 12px 14px;
+      border:1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.10);
+    }
+    .gateHint{
+      padding: 8px 10px 2px;
+      font-size:12px;
+      opacity:.75;
+    }
+    .shake{
+      animation: shake .35s ease;
+    }
+    @keyframes shake{
+      0%{transform: translateX(0)}
+      20%{transform: translateX(-8px)}
+      40%{transform: translateX(8px)}
+      60%{transform: translateX(-6px)}
+      80%{transform: translateX(6px)}
+      100%{transform: translateX(0)}
+    }
+
+    @media (max-width: 520px){
+      .note{width:250px}
+      .note .text{font-size:22px}
+      .cols{grid-template-columns: 1fr}
+      .gateTitle{font-size:34px}
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Passphrase Gate -->
+  <div class="gate" id="gate">
+    <div class="gateCard" id="gateCard">
+      <div class="gateInner">
+        <div class="gateTitle">shrew and shyrax ᥫ᭡</div>
+        <div class="gateSubtitle">This wall is just for us. Leave a note. Add a polaroid. Come back forever.</div>
+
+        <div class="gateRow">
+          <input class="gateInput" id="gateInput" type="password" autocomplete="off" placeholder="passphrase" />
+          <button class="gateBtn" id="gateBtn">enter</button>
+        </div>
+        <div class="gateHint" id="gateHint">hint: It's always the right answer 💗</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="topbar">
+    <div class="brand">
+      <div>Love Notes Wall</div>
+      <small>ᥫ᭡ handwritten notes • polaroids • forever</small>
+    </div>
+    <div class="actions">
+      <span class="chip" id="statusChip">locked</span>
+      <button id="addBtn" disabled style="opacity:.55; cursor:not-allowed;">+ New note</button>
+    </div>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <!-- Watermark -->
+  <div class="watermark" aria-hidden="true">
+    <div class="wmCard">
+      <!-- simple line-ish icon -->
+      <svg width="34" height="34" viewBox="0 0 64 64" fill="none">
+        <path d="M10 34c7-10 15-12 22-10 2-4 7-8 14-8 9 0 16 7 16 16 0 9-7 16-16 16-7 0-12-4-14-8-7 2-15 0-22-10z"
+              stroke="rgba(255,255,255,.85)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M22 30c2-2 6-2 8 0" stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M42 30c2-2 6-2 8 0" stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M30 36c3 3 7 3 10 0" stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <div class="wmText">
+        shrew 🤍 hyrax
+        <small>shrewloveshyrax</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modalOverlay" id="modalOverlay" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true">
+      <h2 id="modalTitle">New love note</h2>
+
+      <div class="cols">
+        <div>
+          <label>Signed as</label>
+          <input id="authorInput" type="text" placeholder="e.g., Sahian / Jacob / nickname" />
+        </div>
+        <div>
+          <label>Optional title</label>
+          <input id="titleInput" type="text" placeholder="e.g., morning thought, tiny poem…" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div style="width:100%">
+          <label>Your note</label>
+          <textarea id="textInput" placeholder="Write something sweet…"></textarea>
+        </div>
+      </div>
+
+      <div class="cols">
+        <div>
+          <label>Sticky color</label>
+          <div class="palette" id="palette"></div>
+        </div>
+        <div>
+          <label>Optional photo (polaroid)</label>
+          <input id="photoInput" type="file" accept="image/*" />
+          <div class="muted">Tip: give your polaroid a caption 💗</div>
+          <input id="captionInput" type="text" placeholder="caption (optional)" />
+        </div>
+      </div>
+
+      <div class="modalFooter">
+        <div class="muted">Drag notes by the top bar. Notes auto-stamp like a diary.</div>
+        <div style="display:flex; gap:10px;">
+          <button id="cancelBtn">Cancel</button>
+          <button id="saveBtn">Save note</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase + App -->
+  <script type="module">
+    // =========================================
+    // 1) PASTE YOUR FIREBASE CONFIG RIGHT HERE
+    // =========================================
+    const firebaseConfig = PASTE_FIREBASE_CONFIG_HERE;
+
+    // Shared wall namespace (no personal names)
+    const ROOM_ID = "shrewloveshyrax";
+
+    // =========================================
+    // 2) Passphrase Gate (SHA-256 hash compare)
+    // =========================================
+    // Passphrase is: "iloveyou"
+    // Stored as SHA-256 so it isn't plain text in your code.
+    const EXPECTED_HASH_HEX = "4c039cfc50c060fc15120a48834e34bc426af5e9ce2e0071ee3d9d0c92deb3ec";
+
+    const gate = document.getElementById("gate");
+    const gateCard = document.getElementById("gateCard");
+    const gateInput = document.getElementById("gateInput");
+    const gateBtn = document.getElementById("gateBtn");
+    const statusChip = document.getElementById("statusChip");
+    const addBtn = document.getElementById("addBtn");
+    const board = document.getElementById("board");
+
+    async function sha256Hex(str){
+      const enc = new TextEncoder().encode(str);
+      const buf = await crypto.subtle.digest("SHA-256", enc);
+      return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,"0")).join("");
+    }
+
+    async function tryUnlock(){
+      const phrase = (gateInput.value || "").trim();
+      if (!phrase) return;
+
+      const hash = await sha256Hex(phrase);
+      if (hash === EXPECTED_HASH_HEX) {
+        // persist "unlocked" for this browser only
+        localStorage.setItem("shrewloveshyrax_unlocked", "1");
+
+        gate.style.display = "none";
+        statusChip.textContent = "connecting…";
+        board.classList.add("live");
+        addBtn.disabled = false;
+        addBtn.style.opacity = "1";
+        addBtn.style.cursor = "pointer";
+
+        startApp(); // kick off Firebase + wall
+      } else {
+        gateCard.classList.remove("shake");
+        void gateCard.offsetWidth; // restart animation
+        gateCard.classList.add("shake");
+        gateInput.value = "";
+        gateInput.focus();
+      }
+    }
+
+    gateBtn.addEventListener("click", tryUnlock);
+    gateInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") tryUnlock();
+    });
+
+    // auto-unlock on this device if already unlocked
+    if (localStorage.getItem("shrewloveshyrax_unlocked") === "1") {
+      gate.style.display = "none";
+      statusChip.textContent = "connecting…";
+      board.classList.add("live");
+      addBtn.disabled = false;
+      addBtn.style.opacity = "1";
+      addBtn.style.cursor = "pointer";
+      startApp();
+    } else {
+      // focus the passphrase input on load
+      setTimeout(() => gateInput.focus(), 60);
+    }
+
+    // =========================================
+    // 3) The App (only runs after unlock)
+    // =========================================
+    async function startApp(){
+      // Imports
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+      import {
+        getFirestore, collection, doc, addDoc, updateDoc, deleteDoc,
+        onSnapshot, query, orderBy, serverTimestamp
+      } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+      import { getAuth, signInAnonymously, onAuthStateChanged }
+        from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+      import { getStorage, ref, uploadBytes, getDownloadURL }
+        from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
+
+      // Init
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+      const storage = getStorage(app);
+
+      // Modal elements
+      const overlay = document.getElementById("modalOverlay");
+      const cancelBtn = document.getElementById("cancelBtn");
+      const saveBtn = document.getElementById("saveBtn");
+      const modalTitle = document.getElementById("modalTitle");
+      const authorInput = document.getElementById("authorInput");
+      const titleInput = document.getElementById("titleInput");
+      const textInput = document.getElementById("textInput");
+      const photoInput = document.getElementById("photoInput");
+      const captionInput = document.getElementById("captionInput");
+      const palette = document.getElementById("palette");
+
+      // Palette
+      const COLORS = [
+        { name:"Butter",   bg:"#FFE8A3", ink:"#1A1A1A" },
+        { name:"Blush",    bg:"#FFC2D6", ink:"#1A1A1A" },
+        { name:"Mint",     bg:"#BFF3D2", ink:"#1A1A1A" },
+        { name:"Sky",      bg:"#B9DCFF", ink:"#1A1A1A" },
+        { name:"Lavender", bg:"#D9C7FF", ink:"#1A1A1A" },
+        { name:"Peach",    bg:"#FFD0A8", ink:"#1A1A1A" }
+      ];
+      let selectedColor = COLORS[0];
+
+      function renderPalette(){
+        palette.innerHTML = "";
+        COLORS.forEach(c => {
+          const s = document.createElement("div");
+          s.className = "swatch" + (c === selectedColor ? " sel" : "");
+          s.title = c.name;
+          s.style.background = c.bg;
+          s.onclick = () => { selectedColor = c; renderPalette(); };
+          palette.appendChild(s);
+        });
+      }
+      renderPalette();
+
+      // Auth
+      let myUid = null;
+      statusChip.textContent = "signing in…";
+      await signInAnonymously(auth);
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          myUid = user.uid;
+          statusChip.textContent = "live";
+        } else {
+          statusChip.textContent = "offline";
+        }
+      });
+
+      // Notes collection
+      const notesCol = collection(db, "rooms", ROOM_ID, "notes");
+      const q = query(notesCol, orderBy("createdAt", "asc"));
+
+      const noteEls = new Map();
+
+      onSnapshot(q, (snap) => {
+        const seen = new Set();
+        snap.forEach(docSnap => {
+          seen.add(docSnap.id);
+          upsertNote(docSnap.id, docSnap.data());
+        });
+        for (const [id, el] of noteEls.entries()) {
+          if (!seen.has(id)) {
+            el.remove();
+            noteEls.delete(id);
+          }
+        }
+      });
+
+      // Timestamp formatting
+      function formatTime(ts){
+        if (!ts) return "";
+        const d = typeof ts?.toDate === "function" ? ts.toDate() : new Date(ts);
+        const now = new Date();
+        const diffMs = now - d;
+        const sec = Math.floor(diffMs / 1000);
+        const min = Math.floor(sec / 60);
+        const hr  = Math.floor(min / 60);
+        const day = Math.floor(hr / 24);
+
+        // cute relative when recent
+        if (sec < 10) return "just now";
+        if (min < 1) return `${sec}s ago`;
+        if (min < 60) return `${min}m ago`;
+        if (hr < 24) return `${hr}h ago`;
+        if (day === 1) return "yesterday";
+
+        const sameYear = now.getFullYear() === d.getFullYear();
+        const datePart = new Intl.DateTimeFormat(undefined, {
+          month: "short",
+          day: "numeric",
+          ...(sameYear ? {} : { year: "numeric" })
+        }).format(d);
+
+        const timePart = new Intl.DateTimeFormat(undefined, {
+          hour: "numeric",
+          minute: "2-digit"
+        }).format(d).toLowerCase();
+
+        return `${datePart} · ${timePart}`;
+      }
+
+      // Note rendering
+      function upsertNote(id, data){
+        let el = noteEls.get(id);
+        if (!el) {
+          el = document.createElement("div");
+          el.className = "note";
+          el.dataset.id = id;
+
+          el.innerHTML = `
+            <div class="dragbar"></div>
+            <div class="hdr">
+              <div class="who">
+                <span class="whoName"></span>
+                <small class="whoTitle"></small>
+              </div>
+              <div class="tools">
+                <div class="iconbtn editBtn" title="Edit">✎</div>
+                <div class="iconbtn delBtn" title="Delete">🗑</div>
+              </div>
+            </div>
+
+            <div class="text"></div>
+
+            <div class="polaroid" style="display:none">
+              <img class="img" alt="Uploaded memory" />
+              <div class="caption"></div>
+            </div>
+
+            <div class="meta">
+              <div class="time"></div>
+              <div class="hint">drag ✨</div>
+            </div>
+          `;
+
+          makeDraggable(el);
+          el.querySelector(".editBtn").onclick = () => openModal({ mode:"edit", id, data });
+          el.querySelector(".delBtn").onclick = () => tryDelete(id);
+
+          board.appendChild(el);
+          noteEls.set(id, el);
+        }
+
+        const bg = data?.colorBg || COLORS[0].bg;
+        const ink = data?.colorInk || COLORS[0].ink;
+        el.style.backgroundColor = bg;
+        el.style.color = ink;
+
+        el.style.left = (data?.x ?? rand(40, window.innerWidth - 340)) + "px";
+        el.style.top  = (data?.y ?? rand(90, window.innerHeight - 280)) + "px";
+        el.style.setProperty("--rot", (data?.rot ?? 0) + "deg");
+
+        el.querySelector(".whoName").textContent = data?.author || "someone";
+        el.querySelector(".whoTitle").textContent = data?.title || "";
+        el.querySelector(".text").textContent = data?.text || "";
+        el.querySelector(".time").textContent = formatTime(data?.createdAt);
+
+        const polaroid = el.querySelector(".polaroid");
+        const img = el.querySelector(".img");
+        const cap = el.querySelector(".caption");
+
+        if (data?.imageUrl) {
+          polaroid.style.display = "block";
+          img.src = data.imageUrl;
+          cap.textContent = data?.caption || "";
+          polaroid.style.setProperty("--polRot", (data?.polRot ?? -1.5) + "deg");
+        } else {
+          polaroid.style.display = "none";
+        }
+
+        const canEdit = (myUid && data?.uid === myUid);
+        el.querySelector(".editBtn").style.display = canEdit ? "grid" : "none";
+        el.querySelector(".delBtn").style.display = canEdit ? "grid" : "none";
+      }
+
+      function rand(min, max){
+        return Math.max(min, Math.floor(min + Math.random() * (max - min)));
+      }
+
+      // Dragging
+      function makeDraggable(el){
+        const dragbar = el.querySelector(".dragbar");
+        let startX=0, startY=0, baseX=0, baseY=0, dragging=false;
+
+        const onDown = (e) => {
+          dragging = true;
+          el.style.zIndex = String(Date.now());
+          startX = e.clientX; startY = e.clientY;
+          baseX = parseFloat(el.style.left || "0");
+          baseY = parseFloat(el.style.top  || "0");
+          window.addEventListener("pointermove", onMove);
+          window.addEventListener("pointerup", onUp, { once:true });
+        };
+
+        const onMove = (e) => {
+          if (!dragging) return;
+          const dx = e.clientX - startX;
+          const dy = e.clientY - startY;
+          el.style.left = (baseX + dx) + "px";
+          el.style.top  = (baseY + dy) + "px";
+        };
+
+        const onUp = async () => {
+          dragging = false;
+          window.removeEventListener("pointermove", onMove);
+
+          const id = el.dataset.id;
+          const x = Math.round(parseFloat(el.style.left || "0"));
+          const y = Math.round(parseFloat(el.style.top  || "0"));
+
+          try {
+            await updateDoc(doc(db, "rooms", ROOM_ID, "notes", id), { x, y });
+          } catch {}
+        };
+
+        dragbar.addEventListener("pointerdown", onDown);
+      }
+
+      // Modal logic
+      let currentMode = "new";
+      let editingId = null;
+
+      addBtn.onclick = () => openModal({ mode:"new" });
+      cancelBtn.onclick = closeModal;
+
+      function openModal({ mode, id=null, data=null }){
+        currentMode = mode;
+        editingId = id;
+
+        photoInput.value = "";
+        captionInput.value = "";
+
+        if (mode === "edit" && data) {
+          modalTitle.textContent = "Edit your note";
+          authorInput.value = data.author || "";
+          titleInput.value = data.title || "";
+          textInput.value = data.text || "";
+          captionInput.value = data.caption || "";
+
+          const match = COLORS.find(c => c.bg === data.colorBg);
+          selectedColor = match || COLORS[0];
+        } else {
+          modalTitle.textContent = "New love note";
+          authorInput.value = localStorage.getItem("loveWall_author") || "";
+          titleInput.value = "";
+          textInput.value = "";
+          selectedColor = COLORS[0];
+        }
+
+        renderPalette();
+        overlay.style.display = "flex";
+        overlay.setAttribute("aria-hidden", "false");
+        setTimeout(() => textInput.focus(), 50);
+      }
+
+      function closeModal(){
+        overlay.style.display = "none";
+        overlay.setAttribute("aria-hidden", "true");
+      }
+
+      saveBtn.onclick = async () => {
+        const author = (authorInput.value || "").trim() || "someone";
+        const title  = (titleInput.value || "").trim();
+        const text   = (textInput.value || "").trim();
+        const caption = (captionInput.value || "").trim();
+
+        if (!text && !photoInput.files?.length) {
+          alert("Write a note or add a photo 💌");
+          return;
+        }
+
+        localStorage.setItem("loveWall_author", author);
+
+        const payload = {
+          author, title, text, caption,
+          colorBg: selectedColor.bg,
+          colorInk: selectedColor.ink,
+        };
+
+        if (currentMode === "new") {
+          payload.uid = myUid;
+          payload.createdAt = serverTimestamp();
+          payload.x = rand(40, window.innerWidth - 340);
+          payload.y = rand(90, window.innerHeight - 280);
+          payload.rot = (Math.random() * 8 - 4).toFixed(2);
+          payload.polRot = (Math.random() * 10 - 5).toFixed(2);
+        }
+
+        try {
+          let noteId;
+
+          if (currentMode === "edit" && editingId) {
+            noteId = editingId;
+            await updateDoc(doc(db, "rooms", ROOM_ID, "notes", noteId), payload);
+          } else {
+            const refDoc = await addDoc(notesCol, payload);
+            noteId = refDoc.id;
+          }
+
+          // photo upload
+          const file = photoInput.files?.[0];
+          if (file) {
+            const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+            const path = `rooms/${ROOM_ID}/notes/${noteId}/${Date.now()}_${safeName}`;
+            const storageRef = ref(storage, path);
+            await uploadBytes(storageRef, file);
+            const url = await getDownloadURL(storageRef);
+
+            await updateDoc(doc(db, "rooms", ROOM_ID, "notes", noteId), {
+              imageUrl: url,
+              caption: caption
+            });
+          }
+
+          closeModal();
+        } catch (err) {
+          console.error(err);
+          alert("Couldn’t save. Check Firebase config/rules, or refresh.");
+        }
+      };
+
+      async function tryDelete(id){
+        if (!confirm("Delete this note?")) return;
+        try {
+          await deleteDoc(doc(db, "rooms", ROOM_ID, "notes", id));
+        } catch {
+          alert("Couldn’t delete (only the creator can delete).");
+        }
+      }
+
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) closeModal();
+      });
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && overlay.style.display === "flex") closeModal();
+      });
+    }
+  </script>
+</body>
+</html>
